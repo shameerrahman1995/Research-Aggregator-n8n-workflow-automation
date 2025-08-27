@@ -1,0 +1,529 @@
+{
+  "name": "Task 2: Research Aggregator & Scoring Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "user input",
+        "formDescription": "Accept free-form user input (topic, keyword, or name)\n",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "topic"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        180
+      ],
+      "id": "8c57efac-dd20-4dd7-924c-7a2534f5bc44",
+      "name": "On form submission",
+      "webhookId": "ebc033b9-a878-4871-bc4e-bd3cd4ffc19b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $json.topic || \"open source software\";\nconst topicEncoded = encodeURIComponent(topic);\nreturn [{ json: { topicEncoded, original: topic } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        180
+      ],
+      "id": "cbada06e-fcdf-43c5-a4ea-8e13f044ee1e",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "url": "=https://en.wikipedia.org/api/rest_v1/page/summary/{{ $('Code').item.json.topicEncoded }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        0
+      ],
+      "id": "44c12659-4197-47b5-aab3-c04afd281ab8",
+      "name": "Wikipedia"
+    },
+    {
+      "parameters": {
+        "url": "=https://news.google.com/rss/search?q={{ $('Code').item.json.topicEncoded }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        -180
+      ],
+      "id": "c583ef76-9ee8-4934-aa26-6ac25c5a47d7",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "limit": 3,
+        "filters": {
+          "q": "={{ $json.original }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        480,
+        180
+      ],
+      "id": "94b6f200-c341-483f-a4ab-ea3a8401ac37",
+      "name": "Get many videos",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "5mIRvqr2CVcDxP3F",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort by publication date (just in case)\nconst sorted = items.sort((a, b) => {\n  const dateA = new Date(a.json.pubDate);\n  const dateB = new Date(b.json.pubDate);\n  return dateB - dateA; // newest first\n});\n\n// Take the latest 5\nconst topFive = sorted.slice(0, 5);\n\n// Format as bullet points\nconst articles = topFive.map(item => {\n  return `• ${item.json.title} – ${item.json.link}`;\n});\n\nreturn [{\n  json: {\n    topic: $('Code').item.json.topicEncoded || \"untitled topic\",\n    news: articles.join(\"\\n\") || \"No articles found.\"\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -180
+      ],
+      "id": "a014cc2a-9593-4c09-9067-504bd94e92cf",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "147f74d2-7038-4046-9f72-893d8328ab79",
+              "name": "extract",
+              "value": "={{ $json.extract }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1400,
+        0
+      ],
+      "id": "9e14c4b3-336d-46e0-90ea-1e3332275166",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6943d91a-4224-4ca7-80e5-6954ca548772",
+              "name": "snippet.title",
+              "value": "={{ $json.snippet.title }}",
+              "type": "string"
+            },
+            {
+              "id": "5b82a7e1-0fbb-4c67-a022-b3daf32c7fc7",
+              "name": "snippet.description",
+              "value": "={{ $json.snippet.description }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        700,
+        180
+      ],
+      "id": "e671bf62-f1f4-4907-b942-6d8965b5b0b1",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawOutput = items[0].json.output;\n\n// Remove code block markers like ```json\\n and ending ```\nconst cleaned = rawOutput.replace(/```json\\n?/, '').replace(/```$/, '');\n\n// Parse as real JSON\nconst parsed = JSON.parse(cleaned);\n\nreturn [\n  {\n    json: parsed\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        160
+      ],
+      "id": "24b272dc-793f-4e9d-9b4d-973db3cb02ea",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an intelligent research summarization and scoring agent.\n\nGoal: Take structured context from multiple public sources and generate a concise snapshot including key insights and relevance scores.\n\nInputs:\n\n- Recent news updates: {{ $json.news }}\n- Wikipedia summary: {{ $json.extract }}\n- YouTube video titles: {{ $json.combinedtitle }}\n- YouTube video descriptions: {{ $json.combineddescription }}\n\nInstructions:\n\n1. **Summarize** key insights from all inputs, focusing on what’s new, important, or unique about the topic.\n2. **Score each data source** based on:\n   - **Interest Level** (1–10): How engaging or attention-worthy the content is.\n   - **Content Relevance** (1–10): How closely it relates to the input topic.\n   - **Data Quality** (1–10): Accuracy, richness, and usefulness of information.\n3. Identify common themes or discrepancies between the sources.\n4. Output a clean and structured JSON with:\n   - `summary`\n   - `insights` (list of bullet points)\n   - `scoring` (object with scores per source)\n   - `overallScore` (average relevance)\n   - `recommendation` (1–2 lines of follow-up action or content worth exploring)\n\nOutput:\nReturn everything in **JSON** format.\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        160
+      ],
+      "id": "90746342-8f6f-4781-85a7-0e11929a02ae",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2240,
+        160
+      ],
+      "id": "06377067-d55b-4f5a-bcb1-ca04274ce948",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "let combinedTitle = \"\";\nlet combinedDescription = \"\";\n\nfor (const item of items) {\n  const title = item.json.snippet.title;\n  const description = item.json.snippet.description;\n  combinedTitle += title + \" \";\n  combinedDescription += description + \" \";\n}\n\nreturn [\n  {\n    json: {\n      combinedtitle: combinedTitle.trim(),\n      combineddescription: combinedDescription.trim(),\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        180
+      ],
+      "id": "9882a577-a87d-4889-b9d8-9da14dbd61d5",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2460,
+        380
+      ],
+      "id": "8be0a5bf-14d0-438f-9712-fdcac52ddaf6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "J1xrG6u7O3iOIO3b",
+          "name": "shameerrahman"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1FYx-ssK3E2NcfHlp26WlBHUIbjr51VhHKz16aMWF7PM",
+          "mode": "list",
+          "cachedResultName": "n8n workflow ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FYx-ssK3E2NcfHlp26WlBHUIbjr51VhHKz16aMWF7PM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FYx-ssK3E2NcfHlp26WlBHUIbjr51VhHKz16aMWF7PM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Summary of the topic ": "={{ $json.summary }}",
+            "Insights": "={{ $json.insights }}",
+            "Scoring": "={{ $json.scoring }}",
+            "OverallScore": "={{ $json.overallScore }}",
+            "depth": "=",
+            "Topic": "={{ $('Code').item.json.original }}",
+            "Recommendation": "={{ $json.recommendation }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary of the topic ",
+              "displayName": "Summary of the topic ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Insights",
+              "displayName": "Insights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scoring",
+              "displayName": "Scoring",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "OverallScore",
+              "displayName": "OverallScore",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "depth",
+              "displayName": "depth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Wikipedia",
+              "displayName": "Wikipedia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3020,
+        160
+      ],
+      "id": "3b0dde63-93ba-4a39-8aca-908459124f38",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SO9xj9PGSpYTAjT5",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Get many videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many videos": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Wikipedia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "579371dd-b4af-4e8e-841d-84f611ee20c8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fbc6e849d016178228efccae4b7e89ea9e1517c7ec9f1c04a81ee9e973804f1f"
+  },
+  "id": "oeRDG8ejNn267GKs",
+  "tags": []
+}
